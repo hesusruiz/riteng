@@ -1,0 +1,8 @@
+<section id="demo">
+  <p>Hello Rite!</p>
+  <x-code>
+    func main() {
+      fmt.Println("Code!")
+    }
+  </x-code>
+</section>
