@@ -216,12 +216,12 @@ This applies both to normal HTML tags and for macros. Rite defines some syntax s
 
 ### The `section` block
 
-Section blocks are the main structuring mechaninsm in Rite, marking individual chapters or distinct sections in the document (e.g., Methodology).
+Section blocks are the main structuring mechanism in Rite, marking individual chapters or distinct sections in the document (e.g., Methodology).
 
 A section block starts with a paragraph which starts with a `<section>` tag. The paragraph is composed of the start tag and the rest of the paragraph (which we will creatively call `rest`). When generating HTML, a `<section>` tag will generate the following:
 
 * A start tag `<section>` with all the same attributes defined in the source text. Eg. `<section class="classname">`.  
-* A header tag (`h1`, `h2`, `h3`, etc.) where the level of the header tag depends on the indentation of the section tag with respect to other section tags. For example, the outermost section tag in the document generates the `<h1>` tag. All sections immediately inside the outermost section tag receive the h2 tag, and so on.  
+* A header tag (`h2`, `h3`, etc.) where the level of the header tag depends on the indentation of the section tag with respect to other section tags. The outermost section tag in the document generates the `<h2>` tag. The tag `h1` is reserved to the title of the document, to help assistive screen readers which look for a single `<h1>` to understand what the document is about. All sections immediately inside the outermost section tag receive the `h3` tag, and so on.  
 * The contents of the header tag are the `rest` of the paragraph (as defined above), prefixed with the indicator of indentation of the section. For example, if `rest` is "Example section":  
   * If the section is the outermost section of the document, the content of the h1 header is “1. Example section”.  
   * If the section is the first immediately inside the outermost section of the document, the h2 header content will be “1.1 Example section”.  
@@ -244,17 +244,38 @@ Generates the following HTML:
 
 ```html
 <section id="demo">
-  <h1>1. Demo</h1>
+  <h2>1. Demo</h2>
   <p>This is a normal paragraph block.</p>
 
   <p>This is a normal paragraph at the same level as the previous one.</p>
 
   <section id="demo2">
-    <h2>1.1. Demo 2</h2>
+    <h3>1.1. Demo 2</h3>
       <p>This is another normal paragraph.</p>
   </section>
 </section>
 ```
+
+The `section` tag supports a special Rite boolean attribute called `unnumbered`. Sections with that attribute will not participate in the automatic numbering schema. This can be used for special sections like 'Abstract' or 'References'.
+
+For example:
+
+```html
+<section id="abstract" unnumbered>Abstract
+  This is the abstract text...
+
+<section id="results">Results
+  ...
+
+<section id="references" unnumbered>References
+  ...
+```
+
+When a section marked as `unnumbered` is found, special processing is performed:
+
+- Numbering State: the associated header will be rendered (e.g., <h2>Abstract</h2>) without the `1.` or `1.1.` prefix, and importantly, it does not increment the global section counter for that section level.
+
+- Semantic Nesting: The processor still assigns the header tag (<h2>, <h3>, etc.) based on the section's depth in the tree, ensuring the HTML structure remains semantically correct even if the text lacks numbering.
 
 ### The `x-include` macro
 
@@ -373,7 +394,9 @@ Notice how the text lines inside the verbatim block have been 'shifted' to the l
 
 ## 2.8 Header of a document
 
-A `rite` document MAY start with a metadata header in YAML format, started by a line of minimum three dashes and ended by another line of minimum three dashes. If there is a header, the `title` item in the header is compulsory, like this:
+A `rite` document MAY start with a metadata header in YAML format, started by a line of minimum three dashes and ended by another line of minimum three dashes. The metadata section, if it exists, must be at the absolute top of the file. That is, the start marker with the dashes must be the fist line of the file.
+
+If there is a header, the `title` item in the header is compulsory, like this:
 
 ```yaml
 ---
@@ -381,7 +404,7 @@ title: Syntax for Rite
 ---
 ```
 
-The metadata section, if it exists, must be at the absolute top of the file. That is, the start marker with the dashes must be the fist line of the file.
+The `title` will be used in a `h1` tag inside a `header` tag in the generated HTML. 
 
 The metadata section can contain many more elements, which will be made accessible to the Go Template used to generate the HTML after processing the Rite source files.
 
