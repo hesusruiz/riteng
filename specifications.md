@@ -381,7 +381,11 @@ title: Syntax for Rite
 ---
 ```
 
+The metadata section, if it exists, must be at the absolute top of the file. That is, the start marker with the dashes must be the fist line of the file.
+
 The metadata section can contain many more elements, which will be made accessible to the Go Template used to generate the HTML after processing the Rite source files.
+
+The metadata section is only processed in the main Rite file being processed, and not in the included files. That is, if the included files have a metadata section, it is ignored and no error is given.
 
 An example header specifying more configuration data would be:
 
