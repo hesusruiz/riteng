@@ -124,7 +124,8 @@ Comments should be treated exactly like the HTML elements they document. They mu
 
 **Indentation:** A line has zero or more space characters at the beginning before the actual text of the line. The number of spaces at the beginning of the line determines the indentation of the line. Only space characters are allowed for indentation; tabs are not allowed. However, to allow for flexibility, the actual Go processor may have an option to reformat the input file according to the Rite rules (something like the gofmt program), and accept tabs and convert them to spaces.
 
-**Empty lines**: a line with only white space is an empty line, and indentation is 0. Contiguous empty lines are normally coalesced into a single empty line when parsing, with the exception of lines in verbatim blocks, described later in the document. From now on, when we use just the word “line”, we are referring to lines which are non-empty. When we have to refer to empty lines, we will explicitly say so.
+**Empty lines**: a line with only white space is an empty line, and indentation is 0. Contiguous empty lines are normally coalesced into a single empty line when parsing, with the exception of lines in verbatim blocks, described later in the document.
+From now on, when we use just the word 'line', we are referring to lines which are non-empty. Contiguous empty lines are structurally transparent; they terminate an active text paragraph block, but they do not alter the indentation stack memory, block nesting levels, or list sibling associations.
 
 **Special empty lines:** if an explicit block-level closing tag is encountered, the parser should validate that its indentation level matches the opening tag's block depth, then pop it from the layout stack normally, treating the rest of that physical line as dead space.
 
@@ -173,6 +174,8 @@ Of course, explicit list blocks can be created if needed by using the standard H
 
 List items are standard Rite blocks, so they can contain child blocks themselves, following the indentation rules in Rite.
 
+Because empty lines are transparent to the layout state machine, intervening empty lines between list items do not break the continuity of an active implicit list block. A list marker line separated from a previous list item by an empty line is still considered a contiguous sibling, provided it shares the exact same indentation level.
+
 ## 2.5 Verbatim block
 A verbatim block is a special block used to preserve formatting of lines and line breaks in the verbatim block. A verbatim block starts with a verbatim tag which in Rite are `<pre>` and `<x-code>`. The tag name `x-code` is a Rite macro which is equivalent to `pre``code` (more on this later). `script` and `style` are forbidden, as Rite is for text processing and styles and behaviour are specified with a different mechanism.
 
@@ -206,7 +209,7 @@ Those normal tags can be block-level tags or inline tags. Block-level tags can O
 
 This applies both to normal HTML tags and for macros. Rite defines some syntax sugar for specifying some attributes in the HTML tags. They are the following:
 
-- The `class` attribute (as in `class="a_class"`) can be shortened to `.a_class`, using the dot notation. If there is only one class name, quotes can be omitted. Otherwise, the class names have to be quoted, or just use the standard HTML syntax. Also, for several classes you can use the shorthand several times.
+- The `class` attribute (as in `class="a_class"`) can be shortened to `.a_class`, using the dot notation. The dot notation can only be used if there is only one class name. Otherwise, the standard HTML syntax has to be used. Also, for several classes you can use the shorthand several times.
 - The `id` attribute `id="an_ID"` can be shortened to `#an_ID` where the `id` is specified without quotes and so it can be only one word (no whitespace used).
 - The `src` attribute `src="an_src"` can be shortened to `@an_src` where the `src` is specified without quotes and so it can be only one word.
 - The `href` attribute `href="an_href"` can be shortened to `?an_href` where the `href` is specified without quotes and so it can be only one word.
@@ -269,9 +272,9 @@ Would include a file named `chapter_5.rite` in a subdirectory named `chapters`. 
 
 ###  The `x-ref` macro
 
-The `x-ref` macro is a reference to another section of the document. The tag has a `href` string value which must correspond to the `id` attribute of some other tag in the document. For example: `<x-ref href="another_section">` or `<x-ref ?another_section>` when using shorthands. When the id has spaces, it has to be quoted, as in `<x-ref ?"another section">`.
+The `x-ref` macro is a reference to another section of the document. The tag has a `href` string value which must correspond to the `id` attribute of some other tag in the document. For example: `<x-ref href="another_section">` or `<x-ref ?another_section>` when using shorthands.
 
-When generating HTML, the x-ref tag will be replaced by an anchor tag (`<a>`) where:
+When generating HTML, the `x-ref` tag will be replaced by an anchor tag (`<a>`) where:
 
 * Its `href` attribute is the `id` of the referenced tag.  
 * If the referenced tag is a `section` tag, the content of the anchor tag is the content of the associated header tag, prefixed with “Section “ (notice the blank space to separate it from the indentation indicator of sections).  
@@ -368,3 +371,46 @@ ___________________________
 
 Notice how the text lines inside the verbatim block have been 'shifted' to the left, so the HTML displayed to the user will be properly formatted.
 
+## 2.8 Header of a document
+
+A `rite` document MAY start with a metadata header in YAML format, started by a line of minimum three dashes and ended by another line of minimum three dashes. If there is a header, the `title` item in the header is compulsory, like this:
+
+```yaml
+---
+title: Syntax for Rite
+---
+```
+
+The metadata section can contain many more elements, which will be made accessible to the Go Template used to generate the HTML after processing the Rite source files.
+
+An example header specifying more configuration data would be:
+
+```yaml
+---
+title: Access to data service
+
+editors:
+- name: "Jesus Ruiz"
+  email: "hesusruiz@gmail.com"
+  company: "JesusRuiz"
+  companyURL: "https://hesusruiz.github.io/hesusruiz"
+
+authors:
+- name: "Jesus Ruiz"
+  email: "hesusruiz@gmail.com"
+  company: "JesusRuiz"
+  companyURL: "https://hesusruiz.github.io/hesusruiz"
+- name: "Another Author"
+  email: "another.author@mycompany.com"
+  company: "MyCompany Name"
+  companyURL: "https://mycompany.com/"
+
+copyright: >
+    Copyright © 2023 the document editors/authors. Text is available under the
+    <a rel="license" href="https://creativecommons.org/licenses/by/4.0/legalcode">
+    Creative Commons Attribution 4.0 International Public License</a>
+
+latestVersion: "https://github.com/hesusruiz/did-method-elsi"
+github: "https://github.com/hesusruiz/did-method-elsi"
+---
+```
