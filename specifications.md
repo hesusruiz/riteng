@@ -126,7 +126,7 @@ Comments should be treated exactly like the HTML elements they document. They mu
 
 **Empty lines**: a line with only white space is an empty line, and indentation is 0. Contiguous empty lines are normally coalesced into a single empty line when parsing, with the exception of lines in verbatim blocks, described later in the document. From now on, when we use just the word “line”, we are referring to lines which are non-empty. When we have to refer to empty lines, we will explicitly say so.
 
-**Special empty lines:** a line which contains only indentation and an HTML block end tag (like `</p>`) is considered an empty line, that is, the tag is ignored. This is so because Rite uses significant indentation to determine when blocks of text start and end. However, it is expected that for block HTML tags, if a start tag is ended with an end tag, both start and end tags have the same indentation. A line which has text following a block end tag is an error. For other types of tags, like end tags, having text following it is not an error.
+**Special empty lines:** if an explicit block-level closing tag is encountered, the parser should validate that its indentation level matches the opening tag's block depth, then pop it from the layout stack normally, treating the rest of that physical line as dead space.
 
 **File indentation:** The first block of text (as defined below) in any file (including included files) **must start at indentation 0**. The first block of text in the file which has indentation (the block can not be the first in the file) defines the `indentation multiplier` of the file, or in other words, the `indentation of the file`. 
 
@@ -186,7 +186,7 @@ In Rite, we use 'normal' HTML tags and additional tags specific to Rite with a t
 
   * key="value"  
   * key='value'  
-  * key=value (no quotes)  
+  * key=value (no quotes, must be a single word)  
   * key (boolean)
 
 Those normal tags can be block-level tags or inline tags. Block-level tags can ONLY appear at the start of a block in Rite. They are invalid in the middle of a paragraph.
@@ -202,7 +202,16 @@ Those normal tags can be block-level tags or inline tags. Block-level tags can O
 
 ## 2.7 Specific processing for tags
 
-## The `section` block
+### Syntax sugar for some tag attributes
+
+This applies both to normal HTML tags and for macros. Rite defines some syntax sugar for specifying some attributes in the HTML tags. They are the following:
+
+- The `class` attribute (as in `class="a_class"`) can be shortened to `.a_class`, using the dot notation. If there is only one class name, quotes can be omitted. Otherwise, the class names have to be quoted, or just use the standard HTML syntax. Also, for several classes you can use the shorthand several times.
+- The `id` attribute `id="an_ID"` can be shortened to `#an_ID` where the `id` is specified without quotes and so it can be only one word (no whitespace used).
+- The `src` attribute `src="an_src"` can be shortened to `@an_src` where the `src` is specified without quotes and so it can be only one word.
+- The `href` attribute `href="an_href"` can be shortened to `?an_href` where the `href` is specified without quotes and so it can be only one word.
+
+### The `section` block
 
 Section blocks are the main structuring mechaninsm in Rite, marking individual chapters or distinct sections in the document (e.g., Methodology).
 
@@ -240,14 +249,15 @@ Generates the following HTML:
   <section id="demo2">
     <h2>1.1. Demo 2</h2>
       <p>This is another normal paragraph.</p>
+  </section>
 </section>
 ```
 
-## The `x-include` macro
+### The `x-include` macro
 
-The `x-include` macro can only appear alone in a line. It requires an `href` attribute, pointing to a file which must be included during parsing. The file must be parsed as if the including file contained the text being included. The indentation level of the included text must be the same as the indentation level of the `x-include` macro. In other words, the text at indentation level 0 in the included file must appear at the indentation level of the macro tag in the including file, and so on with the other indentation levels in the included text.
+The `x-include` macro can only appear alone in a line. It requires an `src` attribute, pointing to a file which must be included during parsing. The file must be parsed as if the including file contained the text being included. The indentation level of the included text must be the same as the indentation level of the `x-include` macro. In other words, the text at indentation level 0 in the included file must appear at the indentation level of the macro tag in the including file, and so on with the other indentation levels in the included text.
 
-The `href` attribute can refer to a local file or to a remote one (if the file name is a url starting with `https`). Remote files must be cached just in case it is included again.
+The `src` attribute can refer to a local file or to a remote one (if the file name is a url starting with `https`). Remote files must be cached just in case it is included again.
 
 For example:
 
@@ -257,9 +267,9 @@ For example:
 
 Would include a file named `chapter_5.rite` in a subdirectory named `chapters`. The subdirectory is relative to the location of the inluding file, not relative to where the Rite processing program is run. For security reasons, the path to the included file can not start with a `/` or include `..`, to avoid exiting from the directory where the main Rite text file exists.
 
-##  The `x-ref` macro
+###  The `x-ref` macro
 
-The `x-ref` macro is a reference to another section of the document. The tag has a string value which must correspond to the `id` attribute of some other tag in the document. For example: `<x-ref another_section>`. When the id has spaces, it has to be quoted, as in `"another section"`.
+The `x-ref` macro is a reference to another section of the document. The tag has a `href` string value which must correspond to the `id` attribute of some other tag in the document. For example: `<x-ref href="another_section">` or `<x-ref ?another_section>` when using shorthands. When the id has spaces, it has to be quoted, as in `<x-ref ?"another section">`.
 
 When generating HTML, the x-ref tag will be replaced by an anchor tag (`<a>`) where:
 
@@ -338,7 +348,7 @@ Will be converted to the HTML:
 
 ```html
 <figure>  
-  <pre role="img" aria-label="ASCII COW"><code>  
+  <pre><code>  
 ___________________________  
 &lt; I'm an expert in my field. &gt;  
 ---------------------------  
