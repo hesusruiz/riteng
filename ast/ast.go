@@ -2,6 +2,9 @@ package ast
 
 // Node represents any node in the Rite Abstract Syntax Tree (AST).
 type Node interface {
+	// sealed is an unexported method that prevents external packages from implementing
+	// this interface. This creates a "sealed" type hierarchy (sum type), ensuring that
+	// only nodes defined in this package can be used.
 	sealed()
 }
 
@@ -75,6 +78,8 @@ func (b *BlockNode) RemoveAttribute(key string) {
 // InlineNode represents inline elements within paragraphs (Text, Bold, Italic, Code, Inline Tags).
 type InlineNode interface {
 	Node
+	// inlineNode is an unexported marker method used to restrict the types of nodes
+	// that can be assigned as children of a ParagraphNode or other inline containers.
 	inlineNode()
 }
 

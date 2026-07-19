@@ -13,6 +13,11 @@ import (
 
 // Parse parses a Rite document from the given reader.
 func Parse(r io.Reader) (*ast.Document, error) {
+	// We load the entire input file into memory as a slice of lines.
+	// For document-sized inputs (typically around a few megabytes), modern systems have
+	// negligible memory overhead. This approach simplifies multi-pass operations,
+	// lookaheads, indentation stack traversals, and recursive inclusion processing,
+	// leading to performant and readable compiler logic.
 	scanner := bufio.NewScanner(r)
 	var lines []string
 	for scanner.Scan() {
@@ -22,11 +27,14 @@ func Parse(r io.Reader) (*ast.Document, error) {
 		return nil, err
 	}
 
+	// This is the root of the document
 	doc := &ast.Document{
-		Metadata: make(map[string]interface{}),
+		Metadata: make(map[string]any),
 	}
 
-	// 1. Parse YAML Metadata at the absolute top of the file
+	// Parse YAML Metadata at the absolute top of the file, if it exists.
+	// If the first line of the file starts with at least 3 dashes, then it is a YAML metadata.
+	// The metadata ends when we find again at least 3 dashes in a line.
 	startIdx := 0
 	if len(lines) > 0 && strings.HasPrefix(strings.TrimSpace(lines[0]), "---") {
 		yamlLines := []string{}
@@ -48,16 +56,17 @@ func Parse(r io.Reader) (*ast.Document, error) {
 		}
 	}
 
-	remainingLines := lines[startIdx:]
+	// Get the lines of the document without the metadata
+	documentLines := lines[startIdx:]
 
-	// 2. Determine indentation multiplier and validate
-	multiplier, err := detectMultiplier(remainingLines)
+	// Determine indentation multiplier of the file and validate it
+	multiplier, err := detectMultiplier(documentLines)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Parse blocks
-	blocks, err := parseBlocks(remainingLines, multiplier, 0)
+	// Parse blocks
+	blocks, err := parseBlocks(documentLines, multiplier, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -67,41 +76,40 @@ func Parse(r io.Reader) (*ast.Document, error) {
 }
 
 // detectMultiplier finds the indentation multiplier (first non-zero indentation)
+// It finds the first non-blank line with an indentation > 0 and returns it.
+// If it doesn't find any, it returns 2.
 func detectMultiplier(lines []string) (int, error) {
-	firstBlockFound := false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
+	for i, line := range lines {
 		indent := countIndent(line)
-		if !firstBlockFound {
-			if indent != 0 {
-				return 0, fmt.Errorf("first block of text must start at indentation 0")
+		nonblankLength := len(line) - indent
+		// We only count non-blank lines to determine the multiplier.
+		if nonblankLength > 0 && indent > 0 {
+			// It is an error if the first non-blank line has some indentation.
+			if i == 0 {
+				return 0, fmt.Errorf("indentation detected at line %d, but first block must start at indentation 0", i+1)
 			}
-			firstBlockFound = true
-		} else {
-			if indent > 0 {
-				return indent, nil
-			}
+			return indent, nil
 		}
 	}
 	// Default to 2 if no indented blocks found
 	return 2, nil
 }
 
-// countIndent counts the number of spaces at the beginning of a line.
+// A tab counts as this many spaces
+const tab2Spaces = 2
+
+// countIndent counts the number of spaces/tabs at the beginning of a line.
+// We accept tabs, converting its indentation to spaces (2 per tab).
 func countIndent(line string) int {
 	count := 0
 	for _, r := range line {
-		if r == ' ' {
+		switch r {
+		case ' ':
 			count++
-		} else if r == '\t' {
-			// Tab is not allowed, but count it as 4 spaces or error. Let's return 0 and let validation handle it, or treat tab as error.
-			// The spec says: "Only space characters are allowed for indentation; tabs are not allowed."
-			return -1
-		} else {
-			break
+		case '\t':
+			count = count + tab2Spaces
+		default:
+			return count
 		}
 	}
 	return count
@@ -387,39 +395,39 @@ func parseStartTag(line string) (tagName string, attrs []ast.Attribute, rest str
 
 func isBlockElement(name string) bool {
 	blocks := map[string]bool{
-		"div":         true,
-		"section":     true,
-		"p":           true,
-		"ul":          true,
-		"ol":          true,
-		"li":          true,
-		"pre":         true,
-		"h1":          true,
-		"h2":          true,
-		"h3":          true,
-		"h4":          true,
-		"h5":          true,
-		"h6":          true,
-		"article":     true,
-		"header":      true,
-		"footer":      true,
-		"aside":       true,
-		"nav":         true,
-		"blockquote":  true,
-		"figure":      true,
-		"figcaption":  true,
-		"table":       true,
-		"thead":       true,
-		"tbody":       true,
-		"tr":          true,
-		"th":          true,
-		"td":          true,
-		"form":        true,
-		"main":        true,
-		"x-include":   true,
-		"x-fig":       true,
-		"x-quote":     true,
-		"x-code":      true,
+		"div":        true,
+		"section":    true,
+		"p":          true,
+		"ul":         true,
+		"ol":         true,
+		"li":         true,
+		"pre":        true,
+		"h1":         true,
+		"h2":         true,
+		"h3":         true,
+		"h4":         true,
+		"h5":         true,
+		"h6":         true,
+		"article":    true,
+		"header":     true,
+		"footer":     true,
+		"aside":      true,
+		"nav":        true,
+		"blockquote": true,
+		"figure":     true,
+		"figcaption": true,
+		"table":      true,
+		"thead":      true,
+		"tbody":      true,
+		"tr":         true,
+		"th":         true,
+		"td":         true,
+		"form":       true,
+		"main":       true,
+		"x-include":  true,
+		"x-fig":      true,
+		"x-quote":    true,
+		"x-code":     true,
 	}
 	return blocks[strings.ToLower(name)]
 }
